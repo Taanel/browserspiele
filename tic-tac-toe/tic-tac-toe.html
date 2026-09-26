@@ -1,0 +1,628 @@
+<title>Tic-Tac-Toe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,ital@9..144,380..600,0..1&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root{
+    --bg:#E9ECE3;
+    --bg-panel:#DEE3D5;
+    --ink:#20241F;
+    --ink-soft:#5B6357;
+    --rule:#C3CBB8;
+    --grid-stroke:#5B6357;
+    --x-color:#A23E20;
+    --o-color:#1E6F68;
+    --win-color:#B9821F;
+    --focus:#33437A;
+    --surface-line: rgba(32,36,31,0.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#171E19;
+      --bg-panel:#1E2721;
+      --ink:#ECEFE6;
+      --ink-soft:#9FAB9A;
+      --rule:rgba(236,239,230,0.16);
+      --grid-stroke:#AEB8A7;
+      --x-color:#E08A63;
+      --o-color:#6FCABE;
+      --win-color:#E8C15D;
+      --focus:#8FA3E8;
+      --surface-line: rgba(236,239,230,0.06);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#171E19;
+    --bg-panel:#1E2721;
+    --ink:#ECEFE6;
+    --ink-soft:#9FAB9A;
+    --rule:rgba(236,239,230,0.16);
+    --grid-stroke:#AEB8A7;
+    --x-color:#E08A63;
+    --o-color:#6FCABE;
+    --win-color:#E8C15D;
+    --focus:#8FA3E8;
+    --surface-line: rgba(236,239,230,0.06);
+  }
+
+  *{ box-sizing:border-box; }
+  body{
+    background:var(--bg);
+    background-image:
+      repeating-linear-gradient(0deg, var(--surface-line) 0 1px, transparent 1px 28px),
+      repeating-linear-gradient(90deg, var(--surface-line) 0 1px, transparent 1px 28px);
+    color:var(--ink);
+    font-family:"Public Sans", -apple-system, "Segoe UI", sans-serif;
+    padding-inline:20px;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .stage{
+    max-width:940px;
+    margin-inline:auto;
+    padding-block:clamp(2.5rem,6vw,4.5rem) 3rem;
+    display:grid;
+    grid-template-columns:1.2fr 0.8fr;
+    gap:3.5rem;
+  }
+  @media (max-width:760px){
+    .stage{ grid-template-columns:1fr; gap:2.5rem; padding-block:2.25rem 2.5rem; }
+    aside.scorecard{ order:2; }
+  }
+
+  .eyebrow{
+    font-size:.7rem;
+    font-weight:600;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin:0 0 .6rem;
+  }
+
+  h1{
+    font-family:"Fraunces", Georgia, serif;
+    font-optical-sizing:auto;
+    font-weight:520;
+    font-size:clamp(2.4rem,5.4vw,3.4rem);
+    line-height:1;
+    letter-spacing:-.01em;
+    margin:0 0 .85rem;
+    text-wrap:balance;
+  }
+  h1 em{
+    font-style:italic;
+    font-weight:420;
+    color:var(--ink-soft);
+  }
+
+  .status{
+    display:flex;
+    align-items:center;
+    gap:.6rem;
+    min-height:1.6em;
+    font-size:1.05rem;
+    font-weight:500;
+    margin-bottom:1.6rem;
+  }
+  .status .mark-x{ color:var(--x-color); }
+  .status .mark-o{ color:var(--o-color); }
+  .status .dot{
+    width:.5rem; height:.5rem; border-radius:50%;
+    background:currentColor;
+    display:inline-block;
+  }
+
+  .board-wrap{
+    position:relative;
+    width:min(420px,88vw);
+    aspect-ratio:1;
+  }
+  .board-svg{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+  .cells{
+    position:absolute; inset:0;
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    grid-template-rows:repeat(3,1fr);
+  }
+  .cell-btn{
+    background:transparent;
+    border:0;
+    margin:0;
+    padding:0;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .cell-btn:disabled{ cursor:default; }
+  .cell-btn:focus-visible{
+    outline:3px solid var(--focus);
+    outline-offset:-8px;
+    border-radius:2px;
+  }
+
+  .grid-line{ fill:none; stroke:var(--grid-stroke); stroke-width:5; stroke-linecap:round; stroke-opacity:.55; }
+  .mark-stroke{ fill:none; stroke-width:10; stroke-linecap:round; }
+  .mark-stroke.x{ stroke:var(--x-color); }
+  .mark-stroke.o{ stroke:var(--o-color); fill:none; }
+  .win-line{ fill:none; stroke:var(--win-color); stroke-width:11; stroke-linecap:round; }
+
+  .grid-line, .mark-stroke, .win-line{
+    stroke-dasharray:1;
+    stroke-dashoffset:1;
+  }
+  @keyframes draw-in{ to{ stroke-dashoffset:0; } }
+  .grid-line{ animation:draw-in .7s cubic-bezier(.3,.7,.2,1) forwards; }
+  .mark-stroke{ animation:draw-in .3s cubic-bezier(.3,.7,.2,1) forwards; }
+  .win-line{ animation:draw-in .5s cubic-bezier(.3,.7,.2,1) .12s forwards; }
+  @media (prefers-reduced-motion:reduce){
+    .grid-line, .mark-stroke, .win-line{ animation:none; stroke-dashoffset:0; }
+  }
+
+  aside.scorecard{
+    border-left:1px solid var(--rule);
+    padding-left:2.25rem;
+    display:flex;
+    flex-direction:column;
+    gap:1.75rem;
+  }
+  @media (max-width:760px){
+    aside.scorecard{ border-left:0; padding-left:0; border-top:1px solid var(--rule); padding-top:1.75rem; }
+  }
+
+  .score-row{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:0;
+  }
+  .score-cell{
+    padding-block:.2rem;
+    border-right:1px solid var(--rule);
+  }
+  .score-cell:last-child{ border-right:0; }
+  .score-cell .label{
+    font-size:.66rem;
+    font-weight:600;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:.3rem;
+  }
+  .score-cell .label.x{ color:var(--x-color); }
+  .score-cell .label.o{ color:var(--o-color); }
+  .score-cell .num{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-weight:600;
+    font-size:clamp(1.7rem,3.4vw,2.3rem);
+    font-variant-numeric:tabular-nums;
+    line-height:1;
+  }
+
+  .controls{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:.7rem;
+  }
+  .btn{
+    font-family:inherit;
+    font-size:.78rem;
+    font-weight:600;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--ink);
+    background:transparent;
+    border:1.5px solid var(--ink);
+    padding:.65rem 1.1rem;
+    cursor:pointer;
+    transition:background-color .15s ease, color .15s ease;
+  }
+  .btn:hover{ background:var(--ink); color:var(--bg); }
+  .btn:focus-visible{ outline:3px solid var(--focus); outline-offset:2px; }
+  .btn.ghost{
+    border-color:transparent;
+    padding-inline:0;
+    color:var(--ink-soft);
+    text-decoration:underline;
+    text-decoration-color:var(--rule);
+    text-underline-offset:3px;
+  }
+  .btn.ghost:hover{ background:transparent; color:var(--ink); text-decoration-color:var(--ink); }
+
+  .rules-note{
+    font-size:.78rem;
+    color:var(--ink-soft);
+    line-height:1.5;
+    max-width:32ch;
+  }
+
+  .setup-card{
+    border:1.5px solid var(--ink);
+    padding:2rem clamp(1.25rem,4vw,2.25rem);
+    max-width:26rem;
+  }
+  .setup-card h2{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:520;
+    font-size:1.6rem;
+    margin:0 0 1.4rem;
+    text-wrap:balance;
+  }
+  .field{
+    display:flex;
+    flex-direction:column;
+    gap:.4rem;
+    margin-bottom:1.2rem;
+  }
+  .field label{
+    font-size:.68rem;
+    font-weight:600;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+  }
+  .field label.x{ color:var(--x-color); }
+  .field label.o{ color:var(--o-color); }
+  .field input{
+    font-family:"Fraunces", Georgia, serif;
+    font-size:1.15rem;
+    color:var(--ink);
+    background:transparent;
+    border:0;
+    border-bottom:1.5px solid var(--rule);
+    padding:.4rem .1rem;
+    outline:none;
+  }
+  .field input:focus-visible{
+    border-bottom-color:var(--focus);
+  }
+  .field input::placeholder{ color:var(--ink-soft); opacity:.6; }
+  .setup-actions{
+    display:flex;
+    align-items:center;
+    gap:1.2rem;
+    margin-top:.6rem;
+  }
+</style>
+
+<div class="stage">
+  <main>
+    <p class="eyebrow">Two players &middot; One grid &middot; Local match</p>
+    <h1>Tic&#8209;Tac&#8209;Toe</h1>
+
+    <div class="setup-card" id="setup">
+      <h2>Name your players</h2>
+      <form id="setup-form">
+        <div class="field">
+          <label class="x" for="name-x">Player X</label>
+          <input type="text" id="name-x" placeholder="Player X" maxlength="18" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="o" for="name-o">Player O</label>
+          <input type="text" id="name-o" placeholder="Player O" maxlength="18" autocomplete="off">
+        </div>
+        <div class="setup-actions">
+          <button class="btn" type="submit" id="setup-submit">Start match</button>
+          <button class="btn ghost" type="button" id="setup-cancel" hidden>Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="game" hidden>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+
+      <div class="board-wrap">
+        <svg class="board-svg" viewBox="0 0 300 300" aria-hidden="true">
+          <path class="grid-line" pathLength="1" d="M 100,-6 Q 104,150 100,306"></path>
+          <path class="grid-line" pathLength="1" d="M 200,-6 Q 196,150 200,306"></path>
+          <path class="grid-line" pathLength="1" d="M -6,100 Q 150,104 306,100"></path>
+          <path class="grid-line" pathLength="1" d="M -6,200 Q 150,196 306,200"></path>
+          <g id="marks-layer"></g>
+          <g id="winline-layer"></g>
+        </svg>
+        <div class="cells" id="cells"></div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="scorecard" id="scorecard" hidden>
+    <div>
+      <p class="eyebrow">Score</p>
+      <div class="score-row">
+        <div class="score-cell">
+          <div class="label x" id="score-label-x">Player X</div>
+          <div class="num" id="score-x">0</div>
+        </div>
+        <div class="score-cell">
+          <div class="label">Draws</div>
+          <div class="num" id="score-d">0</div>
+        </div>
+        <div class="score-cell">
+          <div class="label o" id="score-label-o">Player O</div>
+          <div class="num" id="score-o">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="new-round">New round</button>
+      <button class="btn ghost" id="edit-names">Edit names</button>
+      <button class="btn ghost" id="reset-match">Reset match</button>
+    </div>
+
+    <p class="rules-note">X opens every new round. Three in a row, column, or diagonal wins it. Score carries across rounds until you reset the match.</p>
+  </aside>
+</div>
+
+<script>
+(function(){
+  var CENTERS = [
+    [50,50],[150,50],[250,50],
+    [50,150],[150,150],[250,150],
+    [50,250],[150,250],[250,250]
+  ];
+  var LINES = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  var board = Array(9).fill(null);
+  var current = 'X';
+  var over = false;
+  var scores = { x:0, o:0, draw:0 };
+  var names = { x:'Player X', o:'Player O' };
+
+  var elStatus = document.getElementById('status');
+  var elCells = document.getElementById('cells');
+  var elMarks = document.getElementById('marks-layer');
+  var elWinLine = document.getElementById('winline-layer');
+  var elScoreX = document.getElementById('score-x');
+  var elScoreO = document.getElementById('score-o');
+  var elScoreD = document.getElementById('score-d');
+  var elScoreLabelX = document.getElementById('score-label-x');
+  var elScoreLabelO = document.getElementById('score-label-o');
+  var elSetup = document.getElementById('setup');
+  var elGame = document.getElementById('game');
+  var elScorecard = document.getElementById('scorecard');
+  var elSetupForm = document.getElementById('setup-form');
+  var elNameX = document.getElementById('name-x');
+  var elNameO = document.getElementById('name-o');
+  var elSetupCancel = document.getElementById('setup-cancel');
+
+  function nameFor(player){
+    return player === 'X' ? names.x : names.o;
+  }
+
+  function loadScores(){
+    try{
+      var raw = localStorage.getItem('ttt-scorecard-v1');
+      if(raw){
+        var parsed = JSON.parse(raw);
+        if(typeof parsed.x==='number' && typeof parsed.o==='number' && typeof parsed.draw==='number'){
+          scores = parsed;
+        }
+      }
+    }catch(e){}
+  }
+  function saveScores(){
+    try{ localStorage.setItem('ttt-scorecard-v1', JSON.stringify(scores)); }catch(e){}
+  }
+
+  function loadNames(){
+    try{
+      var raw = localStorage.getItem('ttt-players-v1');
+      if(raw){
+        var parsed = JSON.parse(raw);
+        if(parsed && typeof parsed.x==='string' && typeof parsed.o==='string'){
+          names = parsed;
+        }
+      }
+    }catch(e){}
+  }
+  function saveNames(){
+    try{ localStorage.setItem('ttt-players-v1', JSON.stringify(names)); }catch(e){}
+  }
+
+  function applyNames(){
+    elScoreLabelX.textContent = names.x;
+    elScoreLabelO.textContent = names.o;
+  }
+
+  function showSetup(isEditing){
+    elNameX.value = names.x === 'Player X' ? '' : names.x;
+    elNameO.value = names.o === 'Player O' ? '' : names.o;
+    elSetupCancel.hidden = !isEditing;
+    elGame.hidden = true;
+    elScorecard.hidden = true;
+    elSetup.hidden = false;
+    elNameX.focus();
+  }
+
+  function showGame(){
+    elSetup.hidden = true;
+    elGame.hidden = false;
+    elScorecard.hidden = false;
+  }
+
+  function buildCells(){
+    elCells.innerHTML = '';
+    for(var i=0;i<9;i++){
+      var b = document.createElement('button');
+      b.className = 'cell-btn';
+      b.type = 'button';
+      b.dataset.i = i;
+      b.setAttribute('aria-label', cellLabel(i));
+      b.addEventListener('click', onCellClick);
+      elCells.appendChild(b);
+    }
+  }
+
+  function cellLabel(i){
+    var row = Math.floor(i/3)+1, col = (i%3)+1;
+    var v = board[i];
+    return 'Row '+row+', column '+col+(v ? ', marked by '+nameFor(v)+' ('+v+')' : ', empty');
+  }
+
+  function svgEl(tag, attrs){
+    var el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for(var k in attrs){ el.setAttribute(k, attrs[k]); }
+    return el;
+  }
+
+  function drawMark(i, player){
+    var c = CENTERS[i];
+    var cx = c[0], cy = c[1];
+    if(player === 'X'){
+      var d1 = 'M '+(cx-27)+','+(cy-27)+' Q '+(cx-2)+','+cy+' '+(cx+27)+','+(cy+27);
+      var d2 = 'M '+(cx+27)+','+(cy-27)+' Q '+(cx+2)+','+cy+' '+(cx-27)+','+(cy+27);
+      elMarks.appendChild(svgEl('path',{class:'mark-stroke x', pathLength:'1', d:d1}));
+      elMarks.appendChild(svgEl('path',{class:'mark-stroke x', pathLength:'1', d:d2}));
+    } else {
+      elMarks.appendChild(svgEl('circle',{class:'mark-stroke o', pathLength:'1', cx:cx, cy:cy, r:30}));
+    }
+  }
+
+  function drawWinLine(line){
+    elWinLine.innerHTML = '';
+    var p0 = CENTERS[line[0]], p1 = CENTERS[line[2]];
+    var vx = p1[0]-p0[0], vy = p1[1]-p0[1];
+    var sx = p0[0]-vx*0.22, sy = p0[1]-vy*0.22;
+    var ex = p1[0]+vx*0.22, ey = p1[1]+vy*0.22;
+    var mx = (sx+ex)/2 + (vy)*0.03, my = (sy+ey)/2 - (vx)*0.03;
+    var d = 'M '+sx+','+sy+' Q '+mx+','+my+' '+ex+','+ey;
+    elWinLine.appendChild(svgEl('path',{class:'win-line', pathLength:'1', d:d}));
+  }
+
+  function checkResult(){
+    for(var l=0;l<LINES.length;l++){
+      var a=LINES[l][0], b=LINES[l][1], c=LINES[l][2];
+      if(board[a] && board[a]===board[b] && board[b]===board[c]){
+        return { winner: board[a], line: LINES[l] };
+      }
+    }
+    if(board.every(function(v){ return v; })){
+      return { winner:null, draw:true };
+    }
+    return null;
+  }
+
+  function escapeHtml(s){
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function setStatus(){
+    if(over){
+      var res = checkResult();
+      if(res && res.winner){
+        elStatus.innerHTML = '<span class="mark-'+res.winner.toLowerCase()+'"><span class="dot"></span></span> '+escapeHtml(nameFor(res.winner))+' wins the round';
+      } else {
+        elStatus.textContent = 'Draw — the grid is full';
+      }
+    } else {
+      elStatus.innerHTML = '<span class="mark-'+current.toLowerCase()+'"><span class="dot"></span></span> '+escapeHtml(nameFor(current))+'’s turn';
+    }
+  }
+
+  function refreshScores(){
+    elScoreX.textContent = scores.x;
+    elScoreO.textContent = scores.o;
+    elScoreD.textContent = scores.draw;
+  }
+
+  function onCellClick(e){
+    var i = Number(e.currentTarget.dataset.i);
+    if(over || board[i]) return;
+    board[i] = current;
+    drawMark(i, current);
+    e.currentTarget.disabled = true;
+    e.currentTarget.setAttribute('aria-label', cellLabel(i));
+
+    var res = checkResult();
+    if(res){
+      over = true;
+      if(res.winner){
+        drawWinLine(res.line);
+        scores[res.winner.toLowerCase()] += 1;
+      } else {
+        scores.draw += 1;
+      }
+      saveScores();
+      refreshScores();
+      Array.prototype.forEach.call(elCells.children, function(b){ b.disabled = true; });
+    } else {
+      current = current === 'X' ? 'O' : 'X';
+    }
+    setStatus();
+  }
+
+  function newRound(){
+    board = Array(9).fill(null);
+    current = 'X';
+    over = false;
+    elMarks.innerHTML = '';
+    elWinLine.innerHTML = '';
+    buildCells();
+    setStatus();
+  }
+
+  function resetMatch(){
+    scores = { x:0, o:0, draw:0 };
+    saveScores();
+    refreshScores();
+    newRound();
+  }
+
+  document.getElementById('new-round').addEventListener('click', newRound);
+  document.getElementById('reset-match').addEventListener('click', resetMatch);
+  document.getElementById('edit-names').addEventListener('click', function(){ showSetup(true); });
+  elSetupCancel.addEventListener('click', function(){ showGame(); });
+
+  elSetupForm.addEventListener('submit', function(e){
+    e.preventDefault();
+    names.x = elNameX.value.trim() || 'Player X';
+    names.o = elNameO.value.trim() || 'Player O';
+    saveNames();
+    applyNames();
+    showGame();
+    newRound();
+  });
+
+  function start(data){
+    var restoring = data && data.board && data.current && typeof data.over === 'boolean';
+    if(restoring){
+      board = data.board;
+      current = data.current;
+      over = data.over;
+      if(data.scores) scores = data.scores;
+      if(data.names) names = data.names;
+      else loadNames();
+    } else {
+      loadScores();
+      loadNames();
+    }
+    applyNames();
+    buildCells();
+    board.forEach(function(v,i){ if(v){ drawMark(i,v); elCells.children[i].disabled = true; elCells.children[i].setAttribute('aria-label', cellLabel(i)); } });
+    if(over){
+      var res = checkResult();
+      if(res && res.winner) drawWinLine(res.line);
+      Array.prototype.forEach.call(elCells.children, function(b){ b.disabled = true; });
+    }
+    refreshScores();
+    setStatus();
+
+    if(restoring && (board.some(function(v){ return v; }) || scores.x || scores.o || scores.draw)){
+      showGame();
+    } else {
+      showSetup(false);
+    }
+  }
+
+  if(window.claude && window.claude.hot){
+    window.claude.hot.snapshot(function(){
+      return { board: board, current: current, over: over, scores: scores, names: names };
+    });
+    window.claude.hot.ready ? window.claude.hot.ready(start) : start(window.claude.hot.data || {});
+  } else {
+    start({});
+  }
+})();
+</script>
